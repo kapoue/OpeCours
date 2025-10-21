@@ -106,45 +106,72 @@ class StockRepository @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            DebugUtils.logError("💥 Échec de l'API Alpha Vantage, utilisation des données mock", e)
-            DebugUtils.logInfo("🎭 Génération de données mock réalistes...")
+            DebugUtils.logError("💥 Échec de l'API Alpha Vantage", e)
             
-            // En cas d'échec de l'API, utiliser les données mock (seulement les actifs)
-            val mockStocks = MockStockData.getMockStocks().filter { stock ->
-                Operator.values().find { it.symbol == stock.symbol }?.isActive == true
+            if (Constants.USE_MOCK_DATA_FALLBACK) {
+                DebugUtils.logInfo("🎭 Fallback vers données mock activé")
+                val mockStocks = MockStockData.getMockStocks().filter { stock ->
+                    Operator.values().find { it.symbol == stock.symbol }?.isActive == true
+                }
+                DebugUtils.logInfo("📈 Données mock générées: ${mockStocks.map { "${it.operatorName}: ${it.currentPrice}€" }}")
+                mockStocks
+            } else {
+                DebugUtils.logError("❌ Fallback vers données mock désactivé - propagation de l'erreur")
+                throw e
             }
-            DebugUtils.logInfo("📈 Données mock générées: ${mockStocks.map { "${it.operatorName}: ${it.currentPrice}€" }}")
-            mockStocks
         }
     }
     
     suspend fun refreshStocks(): Resource<List<Stock>> {
         return try {
             if (!networkUtils.isNetworkAvailable()) {
-                DebugUtils.logInfo("Pas de réseau, utilisation des données mock")
-                val mockStocks = MockStockData.getMockStocks()
-                dao.insertAll(mockStocks.map { it.toEntity() })
-                return Resource.Success(mockStocks)
+                DebugUtils.logInfo("❌ Pas de réseau disponible")
+                if (Constants.USE_MOCK_DATA_FALLBACK) {
+                    DebugUtils.logInfo("🎭 Utilisation des données mock (pas de réseau)")
+                    val mockStocks = MockStockData.getMockStocks()
+                    dao.insertAll(mockStocks.map { it.toEntity() })
+                    return Resource.Success(mockStocks)
+                } else {
+                    return Resource.Error("Pas de connexion Internet")
+                }
             }
             
             val stocks = fetchFromApi()
             dao.insertAll(stocks.map { it.toEntity() })
             Resource.Success(stocks)
         } catch (e: HttpException) {
-            DebugUtils.logError("Erreur HTTP, fallback vers mock", e)
-            val mockStocks = MockStockData.getMockStocks()
-            dao.insertAll(mockStocks.map { it.toEntity() })
-            Resource.Success(mockStocks)
+            val errorMsg = "Erreur serveur (${e.code()}): ${e.message()}"
+            DebugUtils.logError(errorMsg, e)
+            if (Constants.USE_MOCK_DATA_FALLBACK) {
+                DebugUtils.logInfo("🎭 Fallback vers données mock (erreur HTTP)")
+                val mockStocks = MockStockData.getMockStocks()
+                dao.insertAll(mockStocks.map { it.toEntity() })
+                Resource.Success(mockStocks)
+            } else {
+                Resource.Error(errorMsg)
+            }
         } catch (e: IOException) {
-            DebugUtils.logError("Erreur IO, fallback vers mock", e)
-            val mockStocks = MockStockData.getMockStocks()
-            dao.insertAll(mockStocks.map { it.toEntity() })
-            Resource.Success(mockStocks)
+            val errorMsg = "Erreur de connexion Internet"
+            DebugUtils.logError(errorMsg, e)
+            if (Constants.USE_MOCK_DATA_FALLBACK) {
+                DebugUtils.logInfo("🎭 Fallback vers données mock (erreur IO)")
+                val mockStocks = MockStockData.getMockStocks()
+                dao.insertAll(mockStocks.map { it.toEntity() })
+                Resource.Success(mockStocks)
+            } else {
+                Resource.Error(errorMsg)
+            }
         } catch (e: Exception) {
-            DebugUtils.logError("Erreur générale, fallback vers mock", e)
-            val mockStocks = MockStockData.getMockStocks()
-            dao.insertAll(mockStocks.map { it.toEntity() })
-            Resource.Success(mockStocks)
+            val errorMsg = "Erreur lors de la récupération des données: ${e.message}"
+            DebugUtils.logError(errorMsg, e)
+            if (Constants.USE_MOCK_DATA_FALLBACK) {
+                DebugUtils.logInfo("🎭 Fallback vers données mock (erreur générale)")
+                val mockStocks = MockStockData.getMockStocks()
+                dao.insertAll(mockStocks.map { it.toEntity() })
+                Resource.Success(mockStocks)
+            } else {
+                Resource.Error(errorMsg)
+            }
         }
     }
 }
