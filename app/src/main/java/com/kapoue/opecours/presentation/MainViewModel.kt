@@ -7,6 +7,7 @@ import com.kapoue.opecours.domain.usecase.GetStocksUseCase
 import com.kapoue.opecours.domain.usecase.RefreshStocksUseCase
 import com.kapoue.opecours.util.Constants
 import com.kapoue.opecours.util.DateUtils
+import com.kapoue.opecours.util.DebugUtils
 import com.kapoue.opecours.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -32,76 +33,116 @@ class MainViewModel @Inject constructor(
     private var autoRefreshJob: Job? = null
     
     init {
+        DebugUtils.logInfo("🚀 MainViewModel initialisé")
         loadStocks()
         startAutoRefresh()
     }
     
     private fun loadStocks() {
+        DebugUtils.logInfo("📱 MainViewModel.loadStocks() appelé")
         viewModelScope.launch {
-            getStocksUseCase().collect { resource ->
-                when (resource) {
-                    is Resource.Loading -> {
-                        _state.update { it.copy(isLoading = true) }
-                    }
-                    is Resource.Success -> {
-                        _state.update { 
-                            it.copy(
-                                stocks = resource.data ?: emptyList(),
-                                isLoading = false,
-                                isRefreshing = false,
-                                error = null
-                            )
+            try {
+                DebugUtils.logInfo("🔄 Début de la collecte des stocks via UseCase")
+                getStocksUseCase().collect { resource ->
+                    DebugUtils.logInfo("📦 Resource reçu: ${resource::class.simpleName}")
+                    when (resource) {
+                        is Resource.Loading -> {
+                            DebugUtils.logInfo("⏳ État: Loading")
+                            _state.update { it.copy(isLoading = true) }
+                        }
+                        is Resource.Success -> {
+                            DebugUtils.logInfo("✅ État: Success avec ${resource.data?.size ?: 0} stocks")
+                            resource.data?.forEach { stock ->
+                                DebugUtils.logInfo("📊 Stock: ${stock.operatorName} = ${stock.currentPrice}€")
+                            }
+                            _state.update {
+                                it.copy(
+                                    stocks = resource.data ?: emptyList(),
+                                    isLoading = false,
+                                    isRefreshing = false,
+                                    error = null
+                                )
+                            }
+                        }
+                        is Resource.Error -> {
+                            DebugUtils.logError("❌ État: Error - ${resource.message}")
+                            _state.update {
+                                it.copy(
+                                    error = resource.message,
+                                    isLoading = false,
+                                    isRefreshing = false
+                                )
+                            }
                         }
                     }
-                    is Resource.Error -> {
-                        _state.update { 
-                            it.copy(
-                                error = resource.message,
-                                isLoading = false,
-                                isRefreshing = false
-                            )
-                        }
-                    }
+                }
+            } catch (e: Exception) {
+                DebugUtils.logError("💥 Erreur dans MainViewModel.loadStocks()", e)
+                _state.update {
+                    it.copy(
+                        error = "Erreur dans ViewModel: ${e.message}",
+                        isLoading = false,
+                        isRefreshing = false
+                    )
                 }
             }
         }
     }
     
     fun refresh() {
+        DebugUtils.logInfo("🔄 MainViewModel.refresh() appelé par l'utilisateur")
         _state.update { it.copy(isRefreshing = true) }
         viewModelScope.launch {
-            val result = refreshStocksUseCase()
-            when (result) {
-                is Resource.Success -> {
-                    _state.update { 
-                        it.copy(
-                            stocks = result.data ?: emptyList(),
-                            isRefreshing = false,
-                            error = null
-                        )
+            try {
+                DebugUtils.logInfo("🔄 Appel du RefreshStocksUseCase")
+                val result = refreshStocksUseCase()
+                DebugUtils.logInfo("📦 RefreshStocksUseCase résultat: ${result::class.simpleName}")
+                when (result) {
+                    is Resource.Success -> {
+                        DebugUtils.logInfo("✅ Refresh Success avec ${result.data?.size ?: 0} stocks")
+                        _state.update {
+                            it.copy(
+                                stocks = result.data ?: emptyList(),
+                                isRefreshing = false,
+                                error = null
+                            )
+                        }
+                    }
+                    is Resource.Error -> {
+                        DebugUtils.logError("❌ Refresh Error: ${result.message}")
+                        _state.update {
+                            it.copy(
+                                error = result.message,
+                                isRefreshing = false
+                            )
+                        }
+                    }
+                    is Resource.Loading -> {
+                        DebugUtils.logInfo("⏳ Refresh Loading - garde isRefreshing = true")
                     }
                 }
-                is Resource.Error -> {
-                    _state.update { 
-                        it.copy(
-                            error = result.message,
-                            isRefreshing = false
-                        )
-                    }
-                }
-                is Resource.Loading -> {
-                    // Ne rien faire, on garde isRefreshing = true
+            } catch (e: Exception) {
+                DebugUtils.logError("💥 Erreur dans MainViewModel.refresh()", e)
+                _state.update {
+                    it.copy(
+                        error = "Erreur refresh: ${e.message}",
+                        isRefreshing = false
+                    )
                 }
             }
         }
     }
     
     private fun startAutoRefresh() {
+        DebugUtils.logInfo("⏰ Démarrage de l'auto-refresh (5 minutes)")
         autoRefreshJob = viewModelScope.launch {
             while (isActive) {
                 delay(Constants.AUTO_REFRESH_INTERVAL_MS)
                 if (isMarketOpen()) {
+                    DebugUtils.logInfo("🕐 Auto-refresh déclenché (marché ouvert)")
                     refresh()
+                } else {
+                    DebugUtils.logInfo("🕐 Auto-refresh ignoré (marché fermé)")
                 }
             }
         }
@@ -127,6 +168,7 @@ class MainViewModel @Inject constructor(
     
     override fun onCleared() {
         super.onCleared()
+        DebugUtils.logInfo("🧹 MainViewModel.onCleared() - nettoyage")
         autoRefreshJob?.cancel()
     }
 }
