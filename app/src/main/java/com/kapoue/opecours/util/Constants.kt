@@ -3,10 +3,9 @@ package com.kapoue.opecours.util
 object Constants {
     const val BASE_URL = "https://www.alphavantage.co/"
     
-    // ⚠️ IMPORTANT: Remplacez "demo" par votre vraie clé Alpha Vantage
-    // Pour obtenir une clé gratuite: https://www.alphavantage.co/support/#api-key
-    // La clé "demo" a des limitations sévères et ne fonctionne que pour certains symboles
-    const val API_KEY = "demo" // TODO: Remplacer par votre vraie clé Alpha Vantage
+    // ✅ Clé Alpha Vantage configurée pour kapoue@gmail.com
+    // Clé gratuite avec 500 requêtes/jour et support des symboles européens
+    const val API_KEY = "AB8FB9V1ZDFC6KDS"
     
     const val DATABASE_NAME = "opecours_db"
     const val AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000L // 5 minutes
