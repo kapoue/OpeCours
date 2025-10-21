@@ -1,39 +1,79 @@
 package com.kapoue.opecours.presentation
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kapoue.opecours.domain.model.Operator
 import com.kapoue.opecours.presentation.components.StockTile
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
     viewModel: MainViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = state.isRefreshing,
-        onRefresh = { viewModel.refresh() }
-    )
+    val scope = rememberCoroutineScope()
+    
+    // Pull-to-refresh simple avec geste de glissement
+    var isRefreshing by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(state.isRefreshing) {
+        isRefreshing = state.isRefreshing
+    }
     
     Box(
         modifier = modifier
             .fillMaxSize()
-            .pullRefresh(pullRefreshState)
+            .pointerInput(Unit) {
+                detectDragGestures { _, dragAmount ->
+                    if (dragAmount.y > 50 && !isRefreshing) {
+                        scope.launch {
+                            viewModel.refresh()
+                        }
+                    }
+                }
+            }
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(8.dp)
         ) {
+            // Bouton de refresh manuel en haut
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "OpéCours",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                Button(
+                    onClick = { viewModel.refresh() },
+                    enabled = !state.isRefreshing
+                ) {
+                    if (state.isRefreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("🔄 Actualiser")
+                    }
+                }
+            }
+            
             // Première ligne : Orange et Bouygues
             Row(
                 modifier = Modifier
@@ -75,12 +115,14 @@ fun MainScreen(
             }
         }
         
-        // Indicateur de pull-to-refresh
-        PullRefreshIndicator(
-            refreshing = state.isRefreshing,
-            state = pullRefreshState,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
+        // Indicateur de refresh en haut
+        if (state.isRefreshing) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+            )
+        }
         
         // Affichage des erreurs
         state.error?.let { error ->

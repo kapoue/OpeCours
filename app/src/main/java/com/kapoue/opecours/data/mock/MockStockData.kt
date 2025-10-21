@@ -6,28 +6,59 @@ import com.kapoue.opecours.util.DateUtils
 
 object MockStockData {
     
+    // Prix de base (valeurs réelles approximatives)
+    private val basePrices = mapOf(
+        "ORA.PA" to 14.16,
+        "EN.PA" to 41.16,
+        "ILD.PA" to 182.00
+    )
+    
     fun getMockStocks(): List<Stock> {
+        // Générer des variations réalistes basées sur l'heure actuelle
+        val currentTime = System.currentTimeMillis()
+        val seed = (currentTime / (1000 * 60 * 15)).toInt() // Change toutes les 15 minutes
+        
         return listOf(
-            createMockStock(
-                operator = Operator.ORANGE,
-                currentPrice = 14.16,
-                previousClose = 14.05,
-                historicalPrices = listOf(13.95, 14.02, 14.08, 14.12, 14.16)
-            ),
-            createMockStock(
-                operator = Operator.BOUYGUES,
-                currentPrice = 41.16,
-                previousClose = 40.85,
-                historicalPrices = listOf(40.50, 40.70, 40.90, 41.05, 41.16)
-            ),
-            createMockStock(
-                operator = Operator.FREE,
-                currentPrice = 182.00,
-                previousClose = 180.50,
-                historicalPrices = listOf(179.00, 180.00, 181.00, 181.50, 182.00)
-            )
-            // SFR retiré car pas de données disponibles
+            createRealisticMockStock(Operator.ORANGE, "ORA.PA", seed),
+            createRealisticMockStock(Operator.BOUYGUES, "EN.PA", seed + 1),
+            createRealisticMockStock(Operator.FREE, "ILD.PA", seed + 2)
         )
+    }
+    
+    private fun createRealisticMockStock(operator: Operator, symbol: String, seed: Int): Stock {
+        val basePrice = basePrices[symbol] ?: 10.0
+        
+        // Générer une variation réaliste (-2% à +2%)
+        val random = kotlin.random.Random(seed)
+        val variation = (random.nextDouble() - 0.5) * 0.04 // -2% à +2%
+        val currentPrice = basePrice * (1 + variation)
+        
+        // Prix de clôture précédent (légèrement différent)
+        val previousVariation = (random.nextDouble() - 0.5) * 0.02
+        val previousClose = basePrice * (1 + previousVariation)
+        
+        return createMockStock(
+            operator = operator,
+            currentPrice = currentPrice,
+            previousClose = previousClose,
+            historicalPrices = generateRealisticHistory(basePrice, currentPrice, random)
+        )
+    }
+    
+    private fun generateRealisticHistory(basePrice: Double, currentPrice: Double, random: kotlin.random.Random): List<Double> {
+        val history = mutableListOf<Double>()
+        var price = basePrice * 0.98 // Commencer légèrement en dessous
+        
+        for (i in 0..4) {
+            val dailyVariation = (random.nextDouble() - 0.5) * 0.03 // -1.5% à +1.5% par jour
+            price *= (1 + dailyVariation)
+            history.add(price)
+        }
+        
+        // S'assurer que le dernier prix est proche du prix actuel
+        history[4] = currentPrice
+        
+        return history
     }
     
     private fun createMockStock(

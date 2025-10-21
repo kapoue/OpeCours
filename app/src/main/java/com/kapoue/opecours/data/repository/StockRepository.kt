@@ -75,32 +75,46 @@ class StockRepository @Inject constructor(
     }
     
     private suspend fun fetchFromApi(): List<Stock> {
-        DebugUtils.logInfo("Début de fetchFromApi() avec Alpha Vantage")
+        DebugUtils.logInfo("🔄 Début de fetchFromApi() avec Alpha Vantage")
+        DebugUtils.logInfo("🔑 Clé API utilisée: ${Constants.API_KEY}")
+        DebugUtils.logInfo("🌐 URL de base: ${Constants.BASE_URL}")
+        
         return try {
-            Operator.values()
-                .filter { it.isActive } // Ne traiter que les opérateurs actifs
-                .map { operator ->
-                    DebugUtils.logInfo("Appel Alpha Vantage pour ${operator.displayName} (${operator.symbol})")
-                    val response = api.getQuote(
-                        symbol = operator.symbol,
-                        apiKey = Constants.API_KEY
-                    )
-                    if (response.isSuccessful) {
-                        val stockData = response.body()?.let { AlphaVantageMapper.toStock(it, operator) }
-                            ?: throw Exception("Données invalides pour ${operator.displayName}")
-                        DebugUtils.logInfo("Données Alpha Vantage récupérées pour ${operator.displayName}: ${stockData.currentPrice}€")
-                        stockData
-                    } else {
-                        DebugUtils.logError("Erreur HTTP ${response.code()} pour ${operator.displayName}")
-                        throw HttpException(response)
-                    }
+            val activeOperators = Operator.values().filter { it.isActive }
+            DebugUtils.logInfo("📊 Opérateurs actifs: ${activeOperators.map { it.displayName }}")
+            
+            activeOperators.map { operator ->
+                DebugUtils.logInfo("📞 Appel Alpha Vantage pour ${operator.displayName} (${operator.symbol})")
+                val response = api.getQuote(
+                    symbol = operator.symbol,
+                    apiKey = Constants.API_KEY
+                )
+                DebugUtils.logInfo("📡 Réponse HTTP ${response.code()} pour ${operator.displayName}")
+                
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    DebugUtils.logInfo("📦 Body reçu pour ${operator.displayName}: ${body?.toString()?.take(200)}...")
+                    
+                    val stockData = body?.let { AlphaVantageMapper.toStock(it, operator) }
+                        ?: throw Exception("Données invalides pour ${operator.displayName}")
+                    DebugUtils.logInfo("✅ Données Alpha Vantage récupérées pour ${operator.displayName}: ${stockData.currentPrice}€")
+                    stockData
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    DebugUtils.logError("❌ Erreur HTTP ${response.code()} pour ${operator.displayName}: $errorBody")
+                    throw HttpException(response)
                 }
+            }
         } catch (e: Exception) {
-            DebugUtils.logError("Échec de l'API Alpha Vantage, utilisation des données mock", e)
+            DebugUtils.logError("💥 Échec de l'API Alpha Vantage, utilisation des données mock", e)
+            DebugUtils.logInfo("🎭 Génération de données mock réalistes...")
+            
             // En cas d'échec de l'API, utiliser les données mock (seulement les actifs)
-            MockStockData.getMockStocks().filter { stock ->
+            val mockStocks = MockStockData.getMockStocks().filter { stock ->
                 Operator.values().find { it.symbol == stock.symbol }?.isActive == true
             }
+            DebugUtils.logInfo("📈 Données mock générées: ${mockStocks.map { "${it.operatorName}: ${it.currentPrice}€" }}")
+            mockStocks
         }
     }
     
