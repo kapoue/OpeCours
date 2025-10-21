@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kapoue.opecours.domain.model.Operator
 import com.kapoue.opecours.presentation.components.StockTile
+import com.kapoue.opecours.util.DebugUtils
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -23,7 +24,10 @@ fun MainScreen(
     val state by viewModel.state.collectAsState()
     val pullRefreshState = rememberPullRefreshState(
         refreshing = state.isRefreshing,
-        onRefresh = { viewModel.refresh() }
+        onRefresh = {
+            DebugUtils.logInfo("🔄 Pull-to-refresh déclenché par l'utilisateur")
+            viewModel.refresh()
+        }
     )
     
     Box(
