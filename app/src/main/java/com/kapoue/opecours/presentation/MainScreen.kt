@@ -1,23 +1,18 @@
 package com.kapoue.opecours.presentation
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kapoue.opecours.domain.model.Operator
 import com.kapoue.opecours.presentation.components.StockTile
-import com.kapoue.opecours.util.DebugUtils
-import kotlinx.coroutines.delay
 
 @Composable
 fun MainScreen(
@@ -25,13 +20,11 @@ fun MainScreen(
     viewModel: MainViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    var isRefreshing by remember { mutableStateOf(false) }
     var pullOffset by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
     
     // Gérer le pull-to-refresh manuellement
     LaunchedEffect(state.isRefreshing) {
-        isRefreshing = state.isRefreshing
         if (!state.isRefreshing) {
             pullOffset = 0f
         }
@@ -42,13 +35,8 @@ fun MainScreen(
             .fillMaxSize()
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = {
-                        DebugUtils.logInfo("🔄 Début du drag pour pull-to-refresh")
-                    },
                     onDragEnd = {
-                        DebugUtils.logInfo("🔄 Fin du drag, offset: $pullOffset")
                         if (pullOffset > with(density) { 100.dp.toPx() }) {
-                            DebugUtils.logInfo("🔄 Pull-to-refresh déclenché par l'utilisateur")
                             viewModel.refresh()
                         }
                         pullOffset = 0f
@@ -56,7 +44,6 @@ fun MainScreen(
                 ) { _, dragAmount ->
                     if (dragAmount.y > 0) {
                         pullOffset = (pullOffset + dragAmount.y).coerceAtMost(with(density) { 150.dp.toPx() })
-                        DebugUtils.logInfo("🔄 Drag en cours, offset: $pullOffset")
                     }
                 }
             }

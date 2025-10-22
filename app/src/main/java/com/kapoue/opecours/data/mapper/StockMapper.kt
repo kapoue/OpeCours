@@ -5,11 +5,8 @@ import com.kapoue.opecours.data.remote.dto.StockResponse
 import com.kapoue.opecours.domain.model.Operator
 import com.kapoue.opecours.domain.model.Stock
 import com.kapoue.opecours.util.DateUtils
-import com.kapoue.opecours.util.DebugUtils
 
 fun StockResponse.toStock(operator: Operator): Stock {
-    DebugUtils.logInfo("Parsing données pour ${operator.displayName}")
-    
     // Vérifier que la réponse contient des données
     val resultList = chart.result
     if (resultList.isNullOrEmpty()) {
@@ -26,8 +23,6 @@ fun StockResponse.toStock(operator: Operator): Stock {
     
     val quote = quoteList.first()
     
-    DebugUtils.logInfo("Meta données: prix=${meta.regularMarketPrice}, ouverture=${meta.regularMarketOpen}, clôture=${meta.previousClose}")
-    
     val currentPrice = meta.regularMarketPrice
     val openPrice = meta.regularMarketOpen ?: currentPrice
     val previousClose = meta.previousClose
@@ -39,8 +34,6 @@ fun StockResponse.toStock(operator: Operator): Stock {
         ?.filterNotNull()
         ?.takeLast(5)
         ?: emptyList()
-    
-    DebugUtils.logInfo("Données historiques: ${historicalPrices.size} prix")
     
     return Stock(
         symbol = operator.symbol,
@@ -85,7 +78,6 @@ fun StockEntity.toDomain(): Stock {
             historicalPrices.split(",").mapNotNull { it.toDoubleOrNull() }
         }
     } catch (e: Exception) {
-        DebugUtils.logError("Erreur parsing historicalPrices: $historicalPrices", e)
         emptyList()
     }
     
