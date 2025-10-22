@@ -3,6 +3,7 @@ package com.kapoue.opecours.di
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.kapoue.opecours.data.remote.AlphaVantageApi
+import com.kapoue.opecours.data.remote.FinnhubApi
 import com.kapoue.opecours.util.Constants
 import dagger.Module
 import dagger.Provides
@@ -13,7 +14,19 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+/**
+ * Qualifiers pour distinguer les différentes instances Retrofit
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class FinnhubRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class AlphaVantageRetrofit
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -48,19 +61,41 @@ object NetworkModule {
             .build()
     }
     
+    // 🔄 Retrofit pour Finnhub API
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
+    @FinnhubRetrofit
+    fun provideFinnhubRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
         return Retrofit.Builder()
-            .baseUrl(Constants.BASE_URL)
+            .baseUrl(Constants.FINNHUB_BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
     }
     
+    // 📊 Retrofit pour Alpha Vantage API (fallback)
     @Provides
     @Singleton
-    fun provideAlphaVantageApi(retrofit: Retrofit): AlphaVantageApi {
+    @AlphaVantageRetrofit
+    fun provideAlphaVantageRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(Constants.ALPHA_VANTAGE_BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+    }
+    
+    // 🔄 API Finnhub
+    @Provides
+    @Singleton
+    fun provideFinnhubApi(@FinnhubRetrofit retrofit: Retrofit): FinnhubApi {
+        return retrofit.create(FinnhubApi::class.java)
+    }
+    
+    // 📊 API Alpha Vantage (fallback)
+    @Provides
+    @Singleton
+    fun provideAlphaVantageApi(@AlphaVantageRetrofit retrofit: Retrofit): AlphaVantageApi {
         return retrofit.create(AlphaVantageApi::class.java)
     }
 }

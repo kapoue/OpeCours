@@ -13,5 +13,5 @@ enum class Operator(
     ORANGE("Orange", "ORA.PA", Color(0xFFFF7900), R.drawable.ic_orange, true),
     BOUYGUES("Bouygues", "EN.PA", Color(0xFF005FAF), R.drawable.ic_bouygues, true),
     SFR("SFR", "ATC.PA", Color(0xFFE50000), R.drawable.ic_sfr, false), // Pas de données disponibles
-    FREE("Free", "ILD.PA", Color(0xFFCD1E25), R.drawable.ic_free, true)
+    FREE("Free", "ILD.PA", Color(0xFFCD1E25), R.drawable.ic_free, false) // Données obsolètes depuis 2021
 }
